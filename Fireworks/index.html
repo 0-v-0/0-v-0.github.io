@@ -2,7 +2,7 @@
 <title>HTML5 Canvas Firework</title>
 <style>body{margin:0;padding:0;overflow:visible;width:100%}
 </style></head>
-<body><canvas id="cv" style="cursor:none;display:block;position:fixed;">Canvas is not supported in your browser.</canvas>
+<body><canvas id="cv" style="display:block;position:fixed;">Canvas is not supported in your browser.</canvas>
 <script>
 function playRandomSound(s){
 	var i, c = 0;
@@ -21,14 +21,12 @@ var requestAnimFrame = window.requestAnimationFrame || window.webkitRequestAnima
 	cv = document.getElementById('cv'), ctx = cv.getContext('2d'),
 	w, h, // full screen dimensions
 	fireworks = [],
-	// when launhing fireworks with a click, too many get launhed at once without a limiter, one launh per 5 loop ticks
-	limiterTotal = 3, limiterTick = 0,
 	// this will time the auto launhes of fireworks, one launh per 80 loop ticks
-	timerTotal = 80, timerTick = 0,
+	timerTotal = 18, timerTick = 0,
 	mousedown = false,
 	mx, my,// mouse coordinate
-	alpha = 0.8, lalpha = 0.8,
-	g = "rgba(115,115,115," + alpha + ")",
+	alpha = 0.92, lalpha = 0,
+	g = "rgba(75,75,75," + alpha + ")",
 	srcs = [
 		4,  "FireworksPop1.wav",
 		8,  "FireworksPop2.wav",
@@ -79,12 +77,11 @@ Firework.prototype.update = function(){
 	//else this.targetRadius = 1;
 	// if the distance traveled, including velocities, is greater than the initial distance to the target, then the target has been reahed
 	if(this.y <= this.ty){
+		if(alpha > 0.5)
+			alpha *= 0.991;
+		else if(alpha > 0)
+			alpha -= .01
 		playRandomSound(0);
-		//ctx2.globalCompositeOperation = 'destination-out';
-		//ctx2.arc(this.tx, this.ty,100,0,2*Math.PI);
-		//ctx2.fill();
-		if(alpha > 0)
-			alpha -= random(0.015, 0.025);
 		//var sm = SmokeMachine(ctx, [11, 11, 11]);
 		//sm.addsmoke(this.tx,this.ty,1);
 		// create particle group/explosion
@@ -130,17 +127,6 @@ function Particle(x, y, hue, angle, speed, br){
 	this.alpha = 1;
 	this.fade = random(0.015, 0.03); // set how fast the particle fades out
 }
-Particle.prototype.update = function(){
-	// remove last item in coordinates array & add current coordinates to the start of the array
-	this.coordinates.pop();
-	this.coordinates.unshift([this.x, this.y]);
-	// slow down the particle & apply velocity
-	this.x += (this.vx *= this.acceleration);
-	this.y += (this.vy *= this.acceleration) + this.gravity;
-	// fade out the particle & remove the particle once the alpha is low enough, based on the passed in index
-	if((this.alpha -= this.fade) <= this.fade)
-		this.draw = null;
-}
 Particle.prototype.draw = function(){// draw particle
 	ctx.beginPath();
 	var coordinate = this.coordinates[this.coordinates.length - 1]
@@ -150,7 +136,16 @@ Particle.prototype.draw = function(){// draw particle
 	ctx.lineWidth=3;
 	ctx.strokeStyle = 'hsla(' + this.hue + ', 100%, ' + this.brightness + '%, ' + this.alpha + ')';
 	ctx.stroke();
-	this.update();
+	//update
+	// remove last item in coordinates array & add current coordinates to the start of the array
+	this.coordinates.pop();
+	this.coordinates.unshift([this.x, this.y]);
+	// slow down the particle & apply velocity
+	this.x += (this.vx *= this.acceleration);
+	this.y += (this.vy *= this.acceleration) + this.gravity;
+	// fade out the particle & remove the particle once the alpha is low enough, based on the passed in index
+	if((this.alpha -= this.fade) <= this.fade)
+		this.draw = null;
 }
 // Explodes in a star shape
 function star(firework, points, jump) {
@@ -191,16 +186,8 @@ function star(firework, points, jump) {
 	// loop until we're back at the start
 	} while(end);
 }//b7_23178450
-/*var c2 = document.getElementById('cv'), ctx2 = cv.getContext('2d');, img=new Image();
-img.src="bg.jpg";
-ctx2.globalCompositeOperation = "source-over";
-ctx2.drawImage(img,0,0,w,h);
-ctx2.globalCompositeOperation = 'lighter';
-ctx2.fillStyle = "rgba(105,105,105,0.5)";
-ctx2.fillRect(0, 0, w, h);
-img.src=c2.toDataURL();*/
 cv.style.background = "url('bg.jpg')";
-cv.style.backgroundSize = "100%";
+cv.style.backgroundSize = "100% 100%";
 function loop(){
 	// this function will run endlessly with requestAnimationFrame
 	requestAnimFrame(loop);
@@ -215,47 +202,38 @@ function loop(){
 	// lighter creates bright highlight points as the fireworks and particles overlap eah other
 	ctx.globalCompositeOperation = 'lighter';
 	// loop over eah firework, draw it, update it
-	for(i = fireworks.length; i--;) if(fireworks[i].draw) fireworks[i].draw();
-	// launh fireworks automatically to random coordinates, when the mouse isn't down
+	for(var i = fireworks.length; i--;) if(fireworks[i].draw) fireworks[i].draw();
+	// launch fireworks automatically to random coordinates, when the mouse isn't down
 	if(alpha > 0)
 	{
-		if(timerTick >= timerTotal){//if(!mousedown)
-			i = random(16, w - 16),
-			// start the firework at the bottom middle of the screen, then set the random target coordinates, the random y coordinates will be set within the range of the top half of the screen
-			Add(new Firework(i, h - 140, i, random(30, h >> 1))),
-			playRandomSound(1),
-			timerTick = 0;
-		}else timerTick++;
-		if(alpha != lalpha){
+		if(alpha <= lalpha){
+			if(timerTick >= timerTotal){
+				if(alpha < 0.2) alpha -=.01;
+				else
+				// start the firework at the bottom middle of the screen, then set the random target coordinates, the random y coordinates will be set within the range of the top half of the screen
+				i = (1-alpha*1000%333/350) * w + 35;
+				Add(new Firework(i, h - 50, i, alpha * (h >> 2) + 50)),
+				Add(new Firework(i, h - 50, i, alpha * (h >> 2) + 170)),
+				Add(new Firework(i, h - 50, i, alpha * (h >> 2) + 290)),
+				playRandomSound(1),
+				timerTick = 0;
+			}else timerTick++;
 			g=ctx.createLinearGradient(0,0,0,h);
-			g.addColorStop(0,"rgba(155,155,155," + alpha + ")"),
-			g.addColorStop(.5,"rgba(135,135,135," + alpha + ")"),
-			g.addColorStop(1,"rgba(115,115,115," + alpha + ")");
+			g.addColorStop(0,"rgba(125,125,125," + alpha + ")"),
+			g.addColorStop(.5,"rgba(105,105,105," + alpha + ")"),
+			g.addColorStop(1,"rgba(65,65,65," + alpha + ")");
 			lalpha = alpha;
+		}else if(lalpha < alpha){
+			lalpha+=.00333;
+			if(lalpha>=alpha)lalpha=alpha;
+			g=ctx.createLinearGradient(0,0,0,h);
+			g.addColorStop(0,"rgba(125,125,125," + lalpha + ")"),
+			g.addColorStop(.5,"rgba(105,105,105," + lalpha + ")"),
+			g.addColorStop(1,"rgba(65,65,65," + lalpha + ")");
 		}
 		ctx.fillStyle = g;
 		ctx.fillRect(0, 0, w, h);
 	}
-	// limit the rate at which fireworks get launhed when mouse is down
-	if(limiterTick >= limiterTotal){
-		if(mousedown){
-			// start the firework at the bottom middle of the screen, then set the current mouse coordinates as the target
-			Add(new Firework(mx, h, mx, my)),
-			limiterTick = 0;
-		}
-	}else limiterTick++;
 }
-// mouse event bindings
-// update the mouse coordinates on mousemove
-cv.addEventListener("mousemove", function(e){
-	if(mousedown){
-		mx = e.pageX - cv.offsetLeft;
-		my = e.pageY - cv.offsetTop;
-	}
-});
-// toggle mousedown state and prevent cv from being selected
-cv.addEventListener("mousedown",function(e){e.preventDefault(),mousedown=true});
-cv.addEventListener("mouseup",function(e){e.preventDefault(),mousedown=false});
-window.ondblclick=window.oncontextmenu=function(e){e.preventDefault(),timerTotal=timerTotal<=3?80:timerTotal>=80?5:3}
-loop(); // once the window loads, we are ready for some fireworks!
+setTimeout(loop, 1800); // once the window loads, we are ready for some fireworks!
 </script></body></html>
